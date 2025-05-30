@@ -97,3 +97,48 @@ def main():
     pub_key_servidor_bytes = client_socket.recv(256)
     pub_key_servidor = serialization.load_pem_public_key(pub_key_servidor_bytes)
     ra.registro["servidor"] = pub_key_servidor
+
+# Proceso de autenticación mutua con el servidor
+    nonce1 = client_socket.recv(256)
+    firma_dispositivo = firmar_nonce(priv_key_dispositivo, nonce1)
+    client_socket.send(firma_dispositivo)
+    nonce2 = generar_nonce()
+    client_socket.send(nonce2)
+    firma_servidor = client_socket.recv(256)
+    if verificar_firma(pub_key_servidor, nonce2, firma_servidor):
+        print("Servidor autenticado por el dispositivo")
+    else:
+        print("Fallo en autenticación del servidor")
+        client_socket.close()
+        return
+
+    # Establecimiento de la clave de sesión con ECDH
+    priv_dev_ecdh, pub_dev_ecdh = generar_par_ecdh()
+    pub_dev_ecdh_bytes = pub_dev_ecdh.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo)
+    client_socket.send(pub_dev_ecdh_bytes)
+    pub_srv_ecdh_bytes = client_socket.recv(256)
+    pub_srv_ecdh = serialization.load_pem_public_key(pub_srv_ecdh_bytes)
+    clave_sesion_dev = derivar_clave_sesion(priv_dev_ecdh, pub_srv_ecdh)
+    print("Clave de sesión establecida con éxito")
+
+    # Bucle para enviar y recibir mensajes cifrados
+    while True:
+        try:
+            mensaje = input("Ingrese mensaje del dispositivo al servidor: ")
+            nonce, ciphertext = cifrar_mensaje(clave_sesion_dev, mensaje)
+            client_socket.send(pickle.dumps((nonce, ciphertext)))
+            nonce_ciphertext_bytes = client_socket.recv(256)
+            if not nonce_ciphertext_bytes:
+                break
+            nonce, ciphertext = pickle.loads(nonce_ciphertext_bytes)
+            respuesta_descifrada = descifrar_mensaje(clave_sesion_dev, nonce, ciphertext)
+            print(f"Dispositivo recibió: {respuesta_descifrada}")
+        except (ConnectionResetError, BrokenPipeError, EOFError):
+            break
+        except KeyboardInterrupt:
+            signal_handler(None, None)
+
+    client_socket.close()
+    print("Sesión finalizada.")
