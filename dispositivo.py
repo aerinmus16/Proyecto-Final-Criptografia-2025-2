@@ -58,3 +58,16 @@ def generar_par_ecdh():
 def derivar_clave_sesion(clave_privada, clave_publica_remota):
     secreto_compartido = clave_privada.exchange(ec.ECDH(), clave_publica_remota)
     return secreto_compartido[:32]
+
+# Función para cifrar mensajes con AES-GCM
+def cifrar_mensaje(clave_sesion, mensaje):
+    aesgcm = AESGCM(clave_sesion)
+    nonce = os.urandom(12)
+    ciphertext = aesgcm.encrypt(nonce, mensaje.encode(), None)
+    return nonce, ciphertext
+
+# Función para descifrar mensajes con AES-GCM
+def descifrar_mensaje(clave_sesion, nonce, ciphertext):
+    aesgcm = AESGCM(clave_sesion)
+    mensaje = aesgcm.decrypt(nonce, ciphertext, None)
+    return mensaje.decode()
