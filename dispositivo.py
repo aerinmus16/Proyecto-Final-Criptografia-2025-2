@@ -71,3 +71,29 @@ def descifrar_mensaje(clave_sesion, nonce, ciphertext):
     aesgcm = AESGCM(clave_sesion)
     mensaje = aesgcm.decrypt(nonce, ciphertext, None)
     return mensaje.decode()
+
+# Función principal del dispositivo
+def main():
+    global client_socket, clave_sesion_dev
+    signal.signal(signal.SIGINT, signal_handler)
+
+    # Inicialización de la autoridad de registro y registro del dispositivo
+    ra = AutoridadRegistro()
+    dispositivo = "dispositivo"
+    priv_key_dispositivo, pub_key_dispositivo = ra.registrar_entidad(dispositivo)
+
+    # Conexión al servidor mediante socket
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client_socket.connect(('localhost', 12345))
+    print("Conectado al servidor.")
+
+    # Envío de la clave pública del dispositivo al servidor
+    pub_key_dispositivo_bytes = pub_key_dispositivo.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo)
+    client_socket.send(pub_key_dispositivo_bytes)
+
+    # Recepción de la clave pública del servidor
+    pub_key_servidor_bytes = client_socket.recv(256)
+    pub_key_servidor = serialization.load_pem_public_key(pub_key_servidor_bytes)
+    ra.registro["servidor"] = pub_key_servidor
