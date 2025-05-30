@@ -47,3 +47,14 @@ def verificar_firma(clave_publica, nonce, firma):
         return True
     except:
         return False
+
+# Función para generar un par de claves ECDH
+def generar_par_ecdh():
+    clave_privada = ec.generate_private_key(ec.SECP384R1())
+    clave_publica = clave_privada.public_key()
+    return clave_privada, clave_publica
+
+# Función para derivar la clave de sesión usando ECDH
+def derivar_clave_sesion(clave_privada, clave_publica_remota):
+    secreto_compartido = clave_privada.exchange(ec.ECDH(), clave_publica_remota)
+    return secreto_compartido[:32]
