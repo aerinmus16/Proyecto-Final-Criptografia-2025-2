@@ -142,3 +142,6 @@ def main():
 
     client_socket.close()
     print("Sesión finalizada.")
+
+if __name__ == "__main__":
+    main()
